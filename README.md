@@ -1,50 +1,64 @@
-# TopAICollection - Test Database
+# Database Synchronization & Tool Scripts
 
-Hai file SQL để dựng database mẫu cho trang chi tiết công cụ AI (giống `/vi/tool/elevenlabs` trong HTML bạn gửi).
+Kho chứa này bao gồm các file SQL để khởi tạo schema cho cơ sở dữ liệu dự án (TopAICollection) và các script Python giúp đồng bộ, cập nhật, và kiểm tra dữ liệu tự động cho các bảng dữ liệu liên quan đến công cụ AI.
 
-## File
+## 1. Các Script Python (Công cụ Xử lý Dữ liệu)
 
-- `topaicollection_schema.sql` — PostgreSQL (đã test chạy ok)
-- `topaicollection_schema_mysql.sql` — MySQL 8.0+
+Các script Python được viết với thư viện `pandas` và `SQLAlchemy`, dùng để tự động hóa quá trình đồng bộ và trích xuất dữ liệu.
 
-## Schema
+* **`dongbo.py`**: Script đồng bộ dữ liệu cột `name` từ bảng `Tool_en` (database A: `mydb`) sang bảng `Tool` (database B: `new_db`), dựa vào ID mapping.
+  ```powershell
+  # Chạy script để xem trước quá trình đồng bộ:
+  python dongbo.py --dry-run
+  
+  # Chạy đồng bộ thực tế:
+  python dongbo.py
+  ```
 
-3 bảng:
+* **`update_tool_translation.py`**: Script đọc dữ liệu từ file CSV (`mapper100-160_replaced_desc.csv`) và cập nhật cột `shortDesc` trong bảng `ToolTranslation` của PostgreSQL (áp dụng cho ngôn ngữ `en`).
+  ```powershell
+  python update_tool_translation.py
+  ```
 
-- **categories** — danh mục (audio, video, writing, image, coding, chatbot, productivity, design)
-- **tools** — công cụ AI (10 records: ElevenLabs, ChatGPT, Midjourney, Claude, Stable Diffusion, GitHub Copilot, Jasper, Runway, Notion AI, Perplexity)
-- **tool_categories** — N-N giữa tool và category, có cờ `is_primary` đánh dấu category chính
+* **`testdb.py`**: Công cụ CLI tương tác cho phép tìm kiếm trực tiếp trong database để kiểm tra nhanh `shortDesc` của Tool trong `ToolTranslation`.
+  - Hỗ trợ **Chế độ 1**: Tìm kiếm theo Tên Tool.
+  - Hỗ trợ **Chế độ 2**: Tìm kiếm nội dung bên trong `shortDesc`.
+  ```powershell
+  python testdb.py
+  ```
 
-Trường trong `tools` map vào các phần của trang web:
-- `name`, `logo_url`, `website` → header
-- `short_desc`, `what_is` → phần "Giới thiệu công cụ" và "ElevenLabs là gì?"
-- `average_rating`, `review_count` → stars + "(17 đánh giá)"
-- `monthly_visits`, `growth_rate` → khối Phân tích
-- `is_featured`, `is_sponsored`, `is_new`, `is_trending` → các badge
+* **`import_csv_to_postgres.py`**: *(Lưu ý khi sử dụng)* Script dùng pandas để nhập dữ liệu CSV ghi đè (replace) toàn bộ bảng trong PostgreSQL. Rất hữu ích khi cần tạo mới lại hoàn toàn một bảng từ file dữ liệu có sẵn.
 
-## Chạy
+## 2. File SQL (Khởi tạo Schema)
 
-PostgreSQL:
+Hai file SQL để dựng database mẫu cho trang chi tiết công cụ AI.
+
+- `topaicollection_schema.sql` — Dành cho PostgreSQL (khuyến nghị)
+- `topaicollection_schema_mysql.sql` — Dành cho MySQL 8.0+
+
+### Cách khởi tạo Database bằng lệnh (CLI)
+
+**PostgreSQL:**
 ```bash
 psql -U postgres -d your_db -f topaicollection_schema.sql
 ```
 
-MySQL:
+**MySQL:**
 ```bash
 mysql -u root -p your_db < topaicollection_schema_mysql.sql
 ```
+*(Lưu ý: Các script này sử dụng `DROP TABLE IF EXISTS` ở đầu file, nên bạn có thể chạy lại nhiều lần để reset dữ liệu).*
 
-Cả hai script đều `DROP TABLE IF EXISTS` trước, nên chạy lại nhiều lần ok.
+## Cấu hình môi trường Python (Dành cho nhà phát triển)
 
-## Query mẫu
+Nếu bạn chạy source code này trên máy mới, hãy đảm bảo khởi tạo môi trường ảo `.venv` và cài đặt các thư viện cần thiết:
+```powershell
+# Tạo môi trường ảo
+python -m venv .venv
 
-Cuối file PostgreSQL có sẵn 5 query comment cho:
-1. Chi tiết 1 tool (trang `/tool/[slug]`)
-2. Featured tools cho trang chủ
-3. Trending tools
-4. Tools theo category
-5. Alternatives (tools cùng category)
+# Kích hoạt môi trường (Windows PowerShell)
+.\.venv\Scripts\Activate.ps1
 
-## Mở rộng
-
-Nếu cần thêm reviews, tags, users, analytics chi tiết theo ngày... cứ nói, tôi mở rộng tiếp.
+# Cài đặt các thư viện
+pip install pandas sqlalchemy psycopg2-binary
+```
